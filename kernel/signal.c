@@ -2958,6 +2958,7 @@ SYSCALL_DEFINE2(kill, pid_t, pid, int, sig)
 	return kill_something_info(sig, &info, pid);
 }
 
+#ifdef CONFIG_PROC_FS
 /*
  * Verify that the signaler and signalee either are in the same pid namespace
  * or that the signaler's pid namespace is an ancestor of the signalee's pid
@@ -3003,11 +3004,12 @@ static int copy_siginfo_from_user_any(siginfo_t *kinfo, siginfo_t __user *info)
 }
 
 /**
- * sys_pidfd_send_signal - Signal a process through a pidfd
- * @pidfd:  file descriptor of the process
- * @sig:    signal to send
- * @info:   signal info
- * @flags:  future flags
+ * sys_pidfd_send_signal - send a signal to a process through a task file
+ *                          descriptor
+ * @pidfd:  the file descriptor of the process
+ * @sig:    signal to be sent
+ * @info:   the signal info
+ * @flags:  future flags to be passed
  *
  * The syscall currently only signals via PIDTYPE_PID which covers
  * kill(<positive-pid>, <signal>. It does not signal threads or process
@@ -3032,7 +3034,7 @@ SYSCALL_DEFINE4(pidfd_send_signal, int, pidfd, int, sig,
 	if (flags)
 		return -EINVAL;
 
-	f = fdget(pidfd);
+	f = fdget_raw(pidfd);
 	if (!f.file)
 		return -EBADF;
 
@@ -3056,11 +3058,16 @@ SYSCALL_DEFINE4(pidfd_send_signal, int, pidfd, int, sig,
 		if (unlikely(sig != kinfo.si_signo))
 			goto err;
 
-		/* Only allow sending arbitrary signals to yourself. */
-		ret = -EPERM;
 		if ((task_pid(current) != pid) &&
-		    (kinfo.si_code >= 0 || kinfo.si_code == SI_TKILL))
-			goto err;
+		    (kinfo.si_code >= 0 || kinfo.si_code == SI_TKILL)) {
+			/* Only allow sending arbitrary signals to yourself. */
+			ret = -EPERM;
+			if (kinfo.si_code != SI_USER)
+				goto err;
+
+			/* Turn this into a regular kill signal. */
+			prepare_kill_siginfo(sig, &kinfo);
+		}
 	} else {
 		prepare_kill_siginfo(sig, &kinfo);
 	}
@@ -3071,6 +3078,7 @@ err:
 	fdput(f);
 	return ret;
 }
+#endif /* CONFIG_PROC_FS */
 
 static int
 do_send_specific(pid_t tgid, pid_t pid, int sig, struct siginfo *info)
