@@ -1225,9 +1225,7 @@ static int smb2_init_dc_psy(struct smb2 *chip)
  *************************/
 
 static enum power_supply_property smb2_batt_props[] = {
-#if defined(CONFIG_MACH_XIAOMI_CLOVER) || defined(CONFIG_MACH_LONGCHEER)
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
-#endif
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
@@ -1291,6 +1289,10 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 #ifdef CONFIG_MACH_LONGCHEER
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		val->intval = chg->charging_enabled;
+		break;
+#else
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		val->intval = !get_effective_result(chg->chg_disable_votable);
 		break;
 #endif
 #endif
@@ -1446,6 +1448,10 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		rc = lct_set_prop_input_suspend(chg, val);
 		break;
+#else
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		vote(chg->chg_disable_votable, USER_VOTER, !!!val->intval, 0);
+		break;
 #endif
 #endif
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
@@ -1532,9 +1538,7 @@ static int smb2_batt_prop_is_writeable(struct power_supply *psy,
 		enum power_supply_property psp)
 {
 	switch (psp) {
-#if defined(CONFIG_MACH_XIAOMI_CLOVER) || defined(CONFIG_MACH_LONGCHEER)
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-#endif
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CAPACITY:
