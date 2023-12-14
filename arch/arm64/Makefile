@@ -40,23 +40,6 @@ LDFLAGS	+= --no-fix-cortex-a53-843419
   endif
 endif
 
-ifeq ($(CONFIG_ARM64_ERRATUM_843419),y)
-  ifeq ($(call ld-option, --fix-cortex-a53-843419),)
-$(warning ld does not support --fix-cortex-a53-843419; kernel may be susceptible to erratum)
-  else
-    ifeq ($(call gold-ifversion, -lt, 114000000, y), y)
-$(warning This version of GNU gold may generate incorrect code with --fix-cortex-a53-843419;\
-	see https://sourceware.org/bugzilla/show_bug.cgi?id=21491)
-    endif
-LDFLAGS_vmlinux	+= --fix-cortex-a53-843419
-  endif
-else
-  ifeq ($(ld-name),gold)
-# Pass --no-fix-cortex-a53-843419 to ensure the erratum fix is disabled
-LDFLAGS	+= --no-fix-cortex-a53-843419
-  endif
-endif
-
 KBUILD_DEFCONFIG := defconfig
 
 # Check for binutils support for specific extensions
@@ -208,6 +191,7 @@ Image-dtb Image.gz-dtb: vmlinux scripts dtbs
 PHONY += vdso_install
 vdso_install:
 	$(Q)$(MAKE) $(build)=arch/arm64/kernel/vdso $@
+	$(Q)$(MAKE) $(build)=arch/arm64/kernel/vdso32 $@
 
 # We use MRPROPER_FILES and CLEAN_FILES now
 archclean:
